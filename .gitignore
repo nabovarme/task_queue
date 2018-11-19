@@ -1,0 +1,8 @@
+.idea/
+__pycache__/
+
+rabbitmq_data/config
+rabbitmq_data/mnesia
+rabbitmq_data/schema
+rabbitmq_data/.erlang.cookie
+.python-version
