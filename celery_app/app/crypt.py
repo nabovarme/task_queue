@@ -38,10 +38,7 @@ def encrypt(topic, message, aes_key_hex, sha_key_hex):
     # hex to bytes
     text = binascii.unhexlify(hex_message)
     ciphertext = encryptor.encrypt(text)
-    print("\ninput")
-    print(byte_IV.hex())
-    print(ciphertext.hex())
-    print(byte_topic)
+
     # calculate cryptographic checksum
     dig = hmac.new(byte_sha_key, digestmod=hashlib.sha256)
     dig.update(byte_topic)
@@ -74,18 +71,14 @@ def decrypt(topic, message, aes_key_hex, sha_key_hex, params):
     IV = binascii.unhexlify(byte_message[64:64+32])
     ciphertext = binascii.unhexlify(byte_message[64+32:].split(b'\0',1)[0])
 
-    print()
-    print(cipher_hex, params[1], cipher_hex.decode('ascii') == params[1])
-    print(IV, params[2], IV  == params[2])
-    print(ciphertext, params[3], ciphertext == params[3])
-    print(byte_topic==params[0])
     dig = hmac.new(byte_sha_key, digestmod=hashlib.sha256)
     dig.update(byte_topic)
     dig.update(IV + ciphertext)
     bytes_digest = dig.digest()
 
-    print(cipher_hex, bytes_digest, cipher_hex == bytes_digest )
-
+    decryptor = AES.new(byte_aes_key, AES.MODE_CBC, IV=IV)
+    decrypted_text = decryptor.decrypt(ciphertext)
+    return decrypted_text.split(b'\0',1)[0].decode('ascii')
 #0000000000000000000000000000000000000000000000000000000000000000ababababababababababababababababd9a7ac43ecde9c99ce296275309bcc8cd919eeda5ede7775a111ef580bd642605313d539759101eabc376d6da58de2dbd3ae734028eb91d8d19405aa019506c4dd383c11a459b2ea132d9137b8db9332147d2b55ea7134cf9254f3a38729e2841ea8cd6d22a09435e2b42cc2635c4476
 
 def test():
@@ -109,8 +102,6 @@ def test():
     ciphertext, params = encrypt(topic, message, aes_key, hmac_key)
     print(f'cipher_text: {ciphertext}')
     decrypted_message = decrypt(topic, ciphertext, aes_key, hmac_key, params)
-
-    print("")
 
     print(f"decrypted_message: '{decrypted_message}' == '{message}'")
     assert message == decrypted_message
