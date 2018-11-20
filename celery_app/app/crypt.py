@@ -31,7 +31,7 @@ def encrypt(topic, message, aes_key_hex, sha_key_hex):
     byte_sha_key = binascii.unhexlify(sha_key_hex)
 
     # encrypt
-    IV = "ABABABABABABABABABABABABABABABAB" # os.urandom(16)
+    IV = os.urandom(16).hex()
     byte_IV = binascii.unhexlify(IV)
     encryptor = AES.new(byte_aes_key, AES.MODE_CBC, IV=byte_IV)
     hex_message = byte_message.hex()
@@ -46,13 +46,12 @@ def encrypt(topic, message, aes_key_hex, sha_key_hex):
     bytes_digest = dig.digest()
 
     cipher_hex = bytes_digest.hex().upper()
-    print(cipher_hex, IV, ciphertext.hex())
-    return (cipher_hex + IV + ciphertext.hex()).upper(), (byte_topic, cipher_hex, byte_IV, ciphertext)
+    return (cipher_hex + IV + ciphertext.hex()).upper()
 
 
 
 # mqtt_message_l = decrypt_aes_hmac_combined(buffer, topic, strlen(topic) + 1, mqtt_message, mqtt_message_l);
-def decrypt(topic, message, aes_key_hex, sha_key_hex, params):
+def decrypt(topic, message, aes_key_hex, sha_key_hex):
     byte_topic = bytes(topic, 'ascii') + b"\x00"
     byte_message = bytes(message, 'ascii') 
 
@@ -99,12 +98,23 @@ def test():
     print(f'asserted_hmac_key:{asserted_hmac_key} == {hmac_key} : {asserted_hmac_key == hmac_key}')
     assert asserted_hmac_key == hmac_key
 
-    ciphertext, params = encrypt(topic, message, aes_key, hmac_key)
+    ciphertext = encrypt(topic, message, aes_key, hmac_key)
     print(f'cipher_text: {ciphertext}')
-    decrypted_message = decrypt(topic, ciphertext, aes_key, hmac_key, params)
+    decrypted_message = decrypt(topic, ciphertext, aes_key, hmac_key)
 
     print(f"decrypted_message: '{decrypted_message}' == '{message}'")
     assert message == decrypted_message
 
+
+def test_2():
+    master_key = "2b7e151628aed2a6abf7158809cf4f3c"
+    aes_key, hmac_key = create_key_from_master(master_key)
+
+    message =  'heap=21376&t1=23.61 C&t2=22.19 C&tdif=1.42 K&flow1=0 l/h&effect1=0.0 kW&hr=73327 h&v1=1321.27 m3&e1=56.726 MWh&'
+    topic = "/sample/v2/7210086/1466572820"
+    ciphertext = encrypt(topic, message, aes_key, hmac_key)
+    decrypted_message = decrypt(topic, ciphertext, aes_key, hmac_key)
+    assert decrypted_message == message
+
 if __name__ == "__main__":
-    test()
+    test_2()
