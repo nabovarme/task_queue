@@ -21,9 +21,6 @@ def encrypt(topic, message, aes_key_hex, sha_key_hex):
 
     # zero padding 
     missing_zeros = 16 - (len(byte_message) % 16)
-
-    # zero padding 
-    missing_zeros = 16 - (len(byte_message) % 16)
     byte_message  += (b"\x00" * missing_zeros)
 
     byte_aes_key = binascii.unhexlify(aes_key_hex)
@@ -56,9 +53,6 @@ def decrypt(topic, message, aes_key_hex, sha_key_hex):
 
     # zero padding 
     missing_zeros = 16 - (len(byte_message) % 16)
-
-    # zero padding 
-    missing_zeros = 16 - (len(byte_message) % 16)
     byte_message  += (b"\x00" * missing_zeros)
 
     byte_aes_key = binascii.unhexlify(aes_key_hex)
@@ -76,7 +70,6 @@ def decrypt(topic, message, aes_key_hex, sha_key_hex):
     decryptor = AES.new(byte_aes_key, AES.MODE_CBC, IV=IV)
     decrypted_text = decryptor.decrypt(ciphertext)
     return decrypted_text.split(b'\0',1)[0].decode('ascii')
-#0000000000000000000000000000000000000000000000000000000000000000ababababababababababababababababd9a7ac43ecde9c99ce296275309bcc8cd919eeda5ede7775a111ef580bd642605313d539759101eabc376d6da58de2dbd3ae734028eb91d8d19405aa019506c4dd383c11a459b2ea132d9137b8db9332147d2b55ea7134cf9254f3a38729e2841ea8cd6d22a09435e2b42cc2635c4476
 
 def test():
     master_key = "2b7e151628aed2a6abf7158809cf4f3c"
