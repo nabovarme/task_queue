@@ -40,7 +40,8 @@ def rpc_call(topic_pub, topic_sub, message, master_key, timeout=30):
             packet = encrypted_answer.publish_packet
             result_topic_name = packet.variable_header.topic_name
             result = packet.payload.data
-            result = crypt.decrypt(topic_sub, result.hex(), aes_key, hmac_key)
+            topic_name = packet.variable_header.topic_name
+            result = crypt.decrypt(topic_name, result.hex(), aes_key, hmac_key)
             yield from C.unsubscribe([topic_sub])
         except ClientException as ce:
             logger.error("Client exception: %s" % ce)
