@@ -51,12 +51,11 @@ def encrypt(topic, message, aes_key_hex, sha_key_hex):
 
 # mqtt_message_l = decrypt_aes_hmac_combined(buffer, topic, strlen(topic) + 1, mqtt_message, mqtt_message_l);
 def decrypt(topic, message, aes_key_hex, sha_key_hex):
-    byte_topic = bytes(topic, 'ascii') + b"\x00"
+    byte_topic = bytes(topic, 'ascii')
     byte_message = bytes(message, 'ascii') 
 
     # zero padding 
     missing_zeros = 16 - (len(byte_message) % 16)
-    #byte_topic += (b"\x00" * missing_zeros)
 
     # zero padding 
     missing_zeros = 16 - (len(byte_message) % 16)
