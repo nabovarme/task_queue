@@ -21,7 +21,6 @@ def encrypt(topic, message, aes_key_hex, sha_key_hex):
 
     # zero padding 
     missing_zeros = 16 - (len(byte_message) % 16)
-    byte_topic += (b"\x00" * missing_zeros)
 
     # zero padding 
     missing_zeros = 16 - (len(byte_message) % 16)
@@ -31,8 +30,8 @@ def encrypt(topic, message, aes_key_hex, sha_key_hex):
     byte_sha_key = binascii.unhexlify(sha_key_hex)
 
     # encrypt
-    IV = os.urandom(16).hex()
-    byte_IV = binascii.unhexlify(IV)
+    IV = os.urandom(16)
+    byte_IV = IV
     encryptor = AES.new(byte_aes_key, AES.MODE_CBC, IV=byte_IV)
     hex_message = byte_message.hex()
     # hex to bytes
@@ -45,8 +44,8 @@ def encrypt(topic, message, aes_key_hex, sha_key_hex):
     dig.update(byte_IV + ciphertext)
     bytes_digest = dig.digest()
 
-    cipher_hex = bytes_digest.hex().upper()
-    return (cipher_hex + IV + ciphertext.hex()).upper()
+    hmac_hex = bytes_digest.hex()
+    return (hmac_hex + IV.hex() + ciphertext.hex()).lower()
 
 
 
