@@ -8,6 +8,9 @@ import hashlib
 import base64
 
 
+class ChecksumError(ValueError):
+    pass
+
 def create_key_from_master(master_hex_key):
     master_key = bytes.fromhex(master_hex_key)
     hex_key = sha256(master_key[:16]).hexdigest()
@@ -15,61 +18,83 @@ def create_key_from_master(master_hex_key):
 
 
 # mqtt_message_l = encrypt_aes_hmac_combined(mqtt_message, topic, strlen(topic) + 1, cleartext, strlen(cleartext) + 1);
-def encrypt(topic, message, aes_key_hex, sha_key_hex):
+def encrypt(topic, message, hex_aes_key, hex_sha_key):
+    # turn the topic and message into bytearrays
     byte_topic = bytes(topic, 'ascii')
     byte_message = bytes(message, 'ascii')
 
-    # zero padding 
+    # zero pad the message
     missing_zeros = 16 - (len(byte_message) % 16)
     byte_message  += (b"\x00" * missing_zeros)
 
-    byte_aes_key = binascii.unhexlify(aes_key_hex)
-    byte_sha_key = binascii.unhexlify(sha_key_hex)
+    # turn the hex crypto keys into bytearrays
+    byte_aes_key = binascii.unhexlify(hex_aes_key)
+    byte_sha_key = binascii.unhexlify(hex_sha_key)
 
-    # encrypt
-    IV = os.urandom(16)
-    byte_IV = IV
+    # create IV for use in hmac and resulting mqtt message
+    byte_IV = os.urandom(16)
+
+    # create aes encryptor
     encryptor = AES.new(byte_aes_key, AES.MODE_CBC, IV=byte_IV)
-    hex_message = byte_message.hex()
-    # hex to bytes
-    text = binascii.unhexlify(hex_message)
-    ciphertext = encryptor.encrypt(text)
 
-    # calculate cryptographic checksum
+    # encrypt byte message with AES
+    byte_encrypted_message = encryptor.encrypt(byte_message)
+
+    # compute sha256 checksum
     dig = hmac.new(byte_sha_key, digestmod=hashlib.sha256)
     dig.update(byte_topic)
-    dig.update(byte_IV + ciphertext)
-    bytes_digest = dig.digest()
+    dig.update(byte_IV + byte_encrypted_message)
+    bytes_checksum = dig.digest()
 
-    hmac_hex = bytes_digest.hex()
-    return (hmac_hex + IV.hex() + ciphertext.hex()).lower()
-
+    # create mqtt message in following format CHECKSUM + IV + ENCRYPTED_MESSAGE
+    mqtt_message = (bytes_checksum.hex() + byte_IV.hex() + byte_encrypted_message.hex()).lower()
+    return mqtt_message
 
 
 # mqtt_message_l = decrypt_aes_hmac_combined(buffer, topic, strlen(topic) + 1, mqtt_message, mqtt_message_l);
-def decrypt(topic, message, aes_key_hex, sha_key_hex):
+def decrypt(topic, message, hex_aes_key, hex_sha_key):
+    # turn the topic and message into bytearrays
     byte_topic = bytes(topic, 'ascii')
-    byte_message = bytes(message, 'ascii') 
+    byte_message = bytes(message, 'ascii')
 
-    # zero padding 
-    missing_zeros = 16 - (len(byte_message) % 16)
-    byte_message  += (b"\x00" * missing_zeros)
 
-    byte_aes_key = binascii.unhexlify(aes_key_hex)
-    byte_sha_key = binascii.unhexlify(sha_key_hex)
+    # turn the hex crypto keys into bytearrays
+    byte_aes_key = binascii.unhexlify(hex_aes_key)
+    byte_sha_key = binascii.unhexlify(hex_sha_key)
 
-    cipher_hex = byte_message[:64]
-    IV = binascii.unhexlify(byte_message[64:64+32])
-    ciphertext = binascii.unhexlify(byte_message[64+32:].split(b'\0',1)[0])
+    # unpack checksum
+    byte_checksum = byte_message[:64]
+    hex_checksum = byte_checksum.decode('ascii')
 
+    # unpack IV
+    hex_IV = byte_message[64:64+32]
+    byte_IV = binascii.unhexlify(hex_IV)
+
+    # compute sha256 checksum
+    hex_encrypted_message = byte_message[64+32:]
+    byte_encrypted_message = binascii.unhexlify(hex_encrypted_message)
+
+    # compute sha256 checksum
     dig = hmac.new(byte_sha_key, digestmod=hashlib.sha256)
     dig.update(byte_topic)
-    dig.update(IV + ciphertext)
-    bytes_digest = dig.digest()
+    dig.update(byte_IV + byte_encrypted_message)
+    byte_checksum_calculated = dig.digest()
 
-    decryptor = AES.new(byte_aes_key, AES.MODE_CBC, IV=IV)
-    decrypted_text = decryptor.decrypt(ciphertext)
-    return decrypted_text.split(b'\0',1)[0].decode('ascii')
+    # get calculated checksum as hex
+    hex_checksum_calculated = byte_checksum_calculated.hex()
+    
+    # compare checksum with computed checksum
+    if not hex_checksum == hex_checksum_calculated:
+        raise ChecksumError(f"incomming checksum: '{hex_checksum}' is not equal to calculated checksum: '{hex_checksum_calculated}'")
+        
+    # create decryptor from AES key and IV
+    decryptor = AES.new(byte_aes_key, AES.MODE_CBC, IV=byte_IV)
+
+    # decrypt encrypted message
+    decrypted_text = decryptor.decrypt(byte_encrypted_message)
+
+    # decode message as ascii
+    return decrypted_text.decode('ascii')
 
 def test():
     master_key = "2b7e151628aed2a6abf7158809cf4f3c"
